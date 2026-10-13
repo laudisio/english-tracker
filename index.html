@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>English Tracker</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏱</text></svg>" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>English Tracker</h1>
+    <nav class="tabs">
+      <button class="tab active" data-view="timer">Cronômetro</button>
+      <button class="tab" data-view="manual">Lançar período</button>
+      <button class="tab" data-view="dashboard">Dashboard</button>
+      <button class="tab" data-view="history">Histórico</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="view-timer" class="view active">
+      <div class="card timer-card">
+        <p id="timer-status" class="muted">Cronômetro rodando</p>
+        <div id="timer-display" class="timer-display">00:00:00</div>
+        <p id="timer-since" class="muted small"></p>
+        <div class="row center">
+          <button id="btn-toggle" class="btn">Pausar</button>
+          <button id="btn-stop" class="btn primary">Parar e salvar</button>
+          <button id="btn-discard" class="btn ghost">Descartar</button>
+        </div>
+        <form id="stop-form" class="stack hidden">
+          <label>Nome da atividade
+            <input id="stop-name" list="activity-names" required placeholder="Ex.: Aula italki, Podcast, Anki..." />
+          </label>
+          <div class="row center">
+            <button type="submit" class="btn primary">Salvar sessão</button>
+            <button type="button" id="stop-cancel" class="btn ghost">Continuar estudando</button>
+          </div>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Hoje</h2>
+        <p class="big" id="today-total">0min</p>
+        <ul id="today-list" class="session-list"></ul>
+      </div>
+    </section>
+
+    <section id="view-manual" class="view">
+      <form id="manual-form" class="card stack">
+        <h2>Lançar atividade passada</h2>
+        <label>Nome da atividade
+          <input id="manual-name" list="activity-names" required placeholder="Ex.: Série em inglês" />
+        </label>
+        <div class="row">
+          <label>Data
+            <input id="manual-date" type="date" required />
+          </label>
+          <label>Horário de início (opcional)
+            <input id="manual-time" type="time" />
+          </label>
+        </div>
+        <div class="row">
+          <label>Horas
+            <input id="manual-hours" type="number" min="0" max="24" value="0" />
+          </label>
+          <label>Minutos
+            <input id="manual-minutes" type="number" min="0" max="59" value="30" />
+          </label>
+        </div>
+        <button type="submit" class="btn primary">Adicionar</button>
+        <p id="manual-msg" class="muted small"></p>
+      </form>
+    </section>
+
+    <section id="view-dashboard" class="view">
+      <div class="grid stats">
+        <div class="card stat"><span class="label">Hoje</span><span class="value" id="stat-day">-</span></div>
+        <div class="card stat"><span class="label">Semana</span><span class="value" id="stat-week">-</span></div>
+        <div class="card stat"><span class="label">Mês</span><span class="value" id="stat-month">-</span></div>
+        <div class="card stat"><span class="label">Ano</span><span class="value" id="stat-year">-</span></div>
+        <div class="card stat total"><span class="label">Total</span><span class="value" id="stat-total">-</span></div>
+      </div>
+      <div class="grid two">
+        <div class="card">
+          <h2>Últimos 14 dias</h2>
+          <div id="chart-days" class="bars"></div>
+        </div>
+        <div class="card">
+          <h2>Por atividade</h2>
+          <ul id="by-activity" class="activity-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-history" class="view">
+      <div class="card">
+        <div class="row spread">
+          <h2>Histórico</h2>
+          <div class="row">
+            <button id="btn-export" class="btn ghost">Exportar JSON</button>
+            <label class="btn ghost file-btn">Importar JSON
+              <input id="import-file" type="file" accept="application/json" hidden />
+            </label>
+          </div>
+        </div>
+        <ul id="history-list" class="session-list"></ul>
+      </div>
+    </section>
+  </main>
+
+  <datalist id="activity-names"></datalist>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
