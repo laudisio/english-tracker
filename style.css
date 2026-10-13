@@ -107,3 +107,4 @@ input:focus { outline: 2px solid var(--primary); border-color: transparent; }
 .login { max-width: 400px; margin: 60px auto; padding: 0 24px; }
 .topbar h1 .badge { vertical-align: middle; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
+.badge:empty { display: none; }
