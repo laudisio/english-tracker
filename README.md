@@ -9,7 +9,12 @@ Site estático para acompanhar o tempo de estudo de inglês.
 - **Dashboard**: tempo estudado hoje, na semana (seg–dom), no mês, no ano e total, gráfico dos últimos 14 dias e ranking por atividade.
 - **Histórico**: lista de sessões agrupadas por dia, com exclusão e exportação/importação em JSON (backup).
 
-Os dados ficam no `localStorage` do navegador (veja `js/storage.js`). A camada de armazenamento é isolada para depois ser trocada por uma API na AWS.
+## Onde ficam os dados
+
+- **Sem AWS** (`js/config.js` vazio): tudo fica no `localStorage` do navegador.
+- **Com AWS**: login pelo Cognito e as sessões vão para o DynamoDB, através de API Gateway e Lambda. O template está em
+  `infra/template.yaml` e o passo a passo em [docs/AWS.md](docs/AWS.md). O estado do cronômetro em andamento continua
+  sendo local, em cada dispositivo.
 
 ## Rodar localmente
 

@@ -9,16 +9,31 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>English Tracker</h1>
-    <nav class="tabs">
+    <h1>English Tracker <span id="mode-badge" class="badge"></span></h1>
+    <nav class="tabs hidden" id="tabs">
       <button class="tab active" data-view="timer">Cronômetro</button>
       <button class="tab" data-view="manual">Lançar período</button>
       <button class="tab" data-view="dashboard">Dashboard</button>
       <button class="tab" data-view="history">Histórico</button>
+      <button id="btn-logout" class="tab hidden">Sair</button>
     </nav>
   </header>
 
-  <main>
+  <section id="login" class="login hidden">
+    <form id="login-form" class="card stack">
+      <h2>Entrar</h2>
+      <label>E-mail
+        <input id="login-email" type="email" autocomplete="username" required />
+      </label>
+      <label>Senha
+        <input id="login-password" type="password" autocomplete="current-password" required />
+      </label>
+      <button type="submit" class="btn primary">Entrar</button>
+      <p id="login-msg" class="muted small"></p>
+    </form>
+  </section>
+
+  <main id="app" class="hidden">
     <section id="view-timer" class="view active">
       <div class="card timer-card">
         <p id="timer-status" class="muted">Cronômetro rodando</p>

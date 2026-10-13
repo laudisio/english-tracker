@@ -1,0 +1,255 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: English Tracker - login (Cognito), API (HTTP API + Lambda) e banco (DynamoDB).
+
+Parameters:
+  AllowedOrigin:
+    Type: String
+    Default: https://laudisio.github.io
+    Description: Origem do site no GitHub Pages (sem barra no final).
+
+Resources:
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: english-tracker-users
+      UsernameAttributes: [email]
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 10
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: admin_only
+            Priority: 1
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: english-tracker-web
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows: [ALLOW_USER_PASSWORD_AUTH, ALLOW_REFRESH_TOKEN_AUTH]
+      PreventUserExistenceErrors: ENABLED
+      IdTokenValidity: 1
+      AccessTokenValidity: 1
+      RefreshTokenValidity: 180
+      TokenValidityUnits:
+        IdToken: hours
+        AccessToken: hours
+        RefreshToken: days
+
+  SessionsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: id
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  ApiFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: sessions-table
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Query
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:BatchWriteItem
+                Resource: !GetAtt SessionsTable.Arn
+
+  ApiFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: english-tracker-api
+      Runtime: python3.12
+      Architectures: [arm64]
+      Handler: index.handler
+      Timeout: 10
+      MemorySize: 256
+      Role: !GetAtt ApiFunctionRole.Arn
+      Environment:
+        Variables:
+          TABLE: !Ref SessionsTable
+      Code:
+        ZipFile: |
+          import base64, json, os
+          import boto3
+          from boto3.dynamodb.conditions import Key
+
+          table = boto3.resource("dynamodb").Table(os.environ["TABLE"])
+          FIELDS = ("id", "name", "start", "durationMs", "source", "createdAt")
+
+
+          def resp(code, body=None):
+              return {
+                  "statusCode": code,
+                  "headers": {"Content-Type": "application/json"},
+                  "body": "" if body is None else json.dumps(body, default=int),
+              }
+
+
+          def clean(item, user):
+              if not isinstance(item, dict):
+                  raise ValueError("invalid session")
+              s = {k: item[k] for k in FIELDS if k in item}
+              ok = (
+                  isinstance(s.get("id"), str) and s["id"]
+                  and isinstance(s.get("name"), str) and s["name"].strip()
+                  and isinstance(s.get("start"), str)
+                  and isinstance(s.get("durationMs"), (int, float))
+                  and s["durationMs"] > 0
+              )
+              if not ok:
+                  raise ValueError("invalid session")
+              s["durationMs"] = int(s["durationMs"])
+              s["userId"] = user
+              return s
+
+
+          def handler(event, context):
+              route = event.get("routeKey")
+              user = event["requestContext"]["authorizer"]["jwt"]["claims"]["sub"]
+              try:
+                  if route == "GET /sessions":
+                      items, kw = [], {"KeyConditionExpression": Key("userId").eq(user)}
+                      while True:
+                          r = table.query(**kw)
+                          items += r["Items"]
+                          if "LastEvaluatedKey" not in r:
+                              break
+                          kw["ExclusiveStartKey"] = r["LastEvaluatedKey"]
+                      for i in items:
+                          i.pop("userId", None)
+                      return resp(200, items)
+                  if route == "POST /sessions":
+                      raw = event.get("body") or "{}"
+                      if event.get("isBase64Encoded"):
+                          raw = base64.b64decode(raw).decode()
+                      body = json.loads(raw)
+                      items = [clean(b, user) for b in (body if isinstance(body, list) else [body])]
+                      with table.batch_writer(overwrite_by_pkeys=["userId", "id"]) as w:
+                          for i in items:
+                              w.put_item(Item=i)
+                      return resp(201, {"saved": len(items)})
+                  if route == "DELETE /sessions/{id}":
+                      table.delete_item(Key={"userId": user, "id": event["pathParameters"]["id"]})
+                      return resp(204)
+              except (ValueError, KeyError, TypeError) as e:
+                  return resp(400, {"error": str(e)})
+              return resp(404, {"error": "not found"})
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: english-tracker-api
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedOrigin
+          - http://localhost:8000
+        AllowHeaders: [authorization, content-type]
+        AllowMethods: [GET, POST, DELETE, OPTIONS]
+        MaxAge: 3600
+
+  JwtAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      Name: cognito
+      AuthorizerType: JWT
+      IdentitySource: [$request.header.Authorization]
+      JwtConfiguration:
+        Audience: [!Ref UserPoolClient]
+        Issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+
+  ApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ApiFunction.Arn
+      PayloadFormatVersion: "2.0"
+
+  ListRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: GET /sessions
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+      Target: !Sub integrations/${ApiIntegration}
+
+  CreateRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: POST /sessions
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+      Target: !Sub integrations/${ApiIntegration}
+
+  DeleteRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: DELETE /sessions/{id}
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+      Target: !Sub integrations/${ApiIntegration}
+
+  DefaultStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: $default
+      AutoDeploy: true
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+
+  ApiInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ApiFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*
+
+Outputs:
+  UserPoolId:
+    Value: !Ref UserPool
+  ConfigJs:
+    Description: Cole este conteudo em js/config.js
+    Value: !Sub 'export const config = { region: "${AWS::Region}", userPoolClientId: "${UserPoolClient}", apiUrl: "${HttpApi.ApiEndpoint}" };'

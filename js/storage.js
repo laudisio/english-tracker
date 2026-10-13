@@ -1,5 +1,6 @@
-// Camada de armazenamento. Hoje usa localStorage; depois pode ser trocada
-// por um adapter que fala com a API na AWS mantendo a mesma interface.
+// Camada de armazenamento: localStorage (sem AWS configurada) ou API na AWS.
+import { config } from "./config.js";
+import { cloudEnabled, getIdToken, logout } from "./auth.js";
 
 const SESSIONS_KEY = "et.sessions";
 const TIMER_KEY = "et.timer";
@@ -22,16 +23,40 @@ export const localAdapter = {
     return read(SESSIONS_KEY, []);
   },
   async addSession(session) {
-    const sessions = read(SESSIONS_KEY, []);
-    sessions.push(session);
-    write(SESSIONS_KEY, sessions);
-    return session;
+    write(SESSIONS_KEY, [...read(SESSIONS_KEY, []), session]);
   },
   async deleteSession(id) {
     write(SESSIONS_KEY, read(SESSIONS_KEY, []).filter((s) => s.id !== id));
   },
-  async replaceAll(sessions) {
-    write(SESSIONS_KEY, sessions);
+  async importSessions(list) {
+    write(SESSIONS_KEY, [...read(SESSIONS_KEY, []), ...list]);
+  },
+  clear() {
+    localStorage.removeItem(SESSIONS_KEY);
+  },
+};
+
+async function api(method, path, body) {
+  const token = await getIdToken();
+  const res = await fetch(`${config.apiUrl}${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (res.status === 401) {
+    logout();
+    location.reload();
+  }
+  if (!res.ok) throw new Error(`Erro na API (${res.status})`);
+  return res.status === 204 ? null : res.json();
+}
+
+export const cloudAdapter = {
+  listSessions: () => api("GET", "/sessions"),
+  addSession: (session) => api("POST", "/sessions", session),
+  deleteSession: (id) => api("DELETE", `/sessions/${encodeURIComponent(id)}`),
+  async importSessions(list) {
+    for (let i = 0; i < list.length; i += 200) await api("POST", "/sessions", list.slice(i, i + 200));
   },
 };
 
@@ -46,4 +71,4 @@ export const timerStore = {
   },
 };
 
-export const storage = localAdapter;
+export const storage = cloudEnabled() ? cloudAdapter : localAdapter;

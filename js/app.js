@@ -1,4 +1,5 @@
-import { storage, timerStore } from "./storage.js";
+import { storage, timerStore, localAdapter } from "./storage.js";
+import { cloudEnabled, isLoggedIn, login, logout } from "./auth.js";
 
 const $ = (sel) => document.querySelector(sel);
 let sessions = [];
@@ -137,12 +138,13 @@ $("#stop-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const durationMs = elapsed();
   if (durationMs < 1000) return alert("Sessão muito curta.");
-  await saveSession({
+  const ok = await saveSession({
     name: $("#stop-name").value.trim(),
     start: new Date(timer.startedAt).toISOString(),
     durationMs,
     source: "timer",
   });
+  if (!ok) return;
   $("#stop-name").value = "";
   resetTimer();
   render();
@@ -162,7 +164,7 @@ $("#manual-form").addEventListener("submit", async (e) => {
   const [hh, mm] = ($("#manual-time").value || "12:00").split(":").map(Number);
   const start = new Date(y, mo - 1, d, hh, mm);
   const name = $("#manual-name").value.trim();
-  await saveSession({ name, start: start.toISOString(), durationMs, source: "manual" });
+  if (!(await saveSession({ name, start: start.toISOString(), durationMs, source: "manual" }))) return;
   $("#manual-msg").textContent = `Adicionado: ${name} — ${human(durationMs)} em ${fmtDate(start)}.`;
   $("#manual-name").value = "";
   render();
@@ -171,13 +173,23 @@ $("#manual-form").addEventListener("submit", async (e) => {
 // ---------- sessões ----------
 async function saveSession(data) {
   const session = { id: uid(), createdAt: new Date().toISOString(), ...data };
-  await storage.addSession(session);
+  try {
+    await storage.addSession(session);
+  } catch (e) {
+    alert(`Não foi possível salvar: ${e.message}. Tente novamente.`);
+    return false;
+  }
   sessions.push(session);
+  return true;
 }
 
 async function deleteSession(id) {
   if (!confirm("Excluir esta sessão?")) return;
-  await storage.deleteSession(id);
+  try {
+    await storage.deleteSession(id);
+  } catch (e) {
+    return alert(`Não foi possível excluir: ${e.message}`);
+  }
   sessions = sessions.filter((s) => s.id !== id);
   render();
 }
@@ -295,15 +307,15 @@ $("#import-file").addEventListener("change", async (e) => {
   if (!file) return;
   try {
     const data = JSON.parse(await file.text());
-    if (!Array.isArray(data)) throw new Error();
+    if (!Array.isArray(data)) throw new SyntaxError();
     const ids = new Set(sessions.map((s) => s.id));
     const fresh = data.filter((s) => s && s.id && s.name && s.start && s.durationMs > 0 && !ids.has(s.id));
+    await storage.importSessions(fresh);
     sessions = [...sessions, ...fresh];
-    await storage.replaceAll(sessions);
     alert(`${fresh.length} sessão(ões) importada(s).`);
     render();
-  } catch {
-    alert("Arquivo inválido.");
+  } catch (err) {
+    alert(err instanceof SyntaxError || !err.message ? "Arquivo inválido." : `Falha ao importar: ${err.message}`);
   }
   e.target.value = "";
 });
@@ -317,14 +329,80 @@ function render() {
   renderNames();
 }
 
-async function init() {
-  sessions = await storage.listSessions();
-  if (!timer) startTimer(); // ao abrir o site, já começa a contar
+// Envia para a nuvem as sessões que estavam só neste navegador.
+async function migrateLocalSessions() {
+  const local = await localAdapter.listSessions();
+  if (!local.length) return;
+  if (!confirm(`Encontramos ${local.length} sessão(ões) salvas só neste navegador. Enviar para a nuvem?`)) return;
+  const ids = new Set(sessions.map((s) => s.id));
+  const fresh = local.filter((s) => !ids.has(s.id));
+  await storage.importSessions(fresh);
+  sessions = [...sessions, ...fresh];
+  localAdapter.clear();
+}
+
+function showApp() {
+  $("#login").classList.add("hidden");
+  $("#app").classList.remove("hidden");
+  $("#tabs").classList.remove("hidden");
+  $("#btn-logout").classList.toggle("hidden", !cloudEnabled());
+  $("#mode-badge").textContent = cloudEnabled() ? "nuvem" : "local";
+}
+
+function showLogin() {
+  $("#app").classList.add("hidden");
+  $("#tabs").classList.add("hidden");
+  $("#login").classList.remove("hidden");
+  $("#login-email").focus();
+}
+
+$("#login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = e.submitter;
+  btn.disabled = true;
+  $("#login-msg").textContent = "Entrando...";
+  try {
+    await login($("#login-email").value.trim(), $("#login-password").value, async () =>
+      prompt("Primeiro acesso: defina uma nova senha (mín. 10 caracteres, com maiúscula, minúscula e número)"),
+    );
+    $("#login-password").value = "";
+    $("#login-msg").textContent = "";
+    await start();
+  } catch (err) {
+    $("#login-msg").textContent =
+      err.code === "NotAuthorizedException" ? "E-mail ou senha incorretos." : `Erro: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$("#btn-logout").addEventListener("click", () => {
+  if (!confirm("Sair da conta?")) return;
+  logout();
+  sessions = [];
+  showLogin();
+});
+
+async function start() {
+  try {
+    sessions = await storage.listSessions();
+    if (cloudEnabled()) await migrateLocalSessions();
+  } catch (err) {
+    if (!isLoggedIn()) return showLogin();
+    alert(`Não foi possível carregar os dados: ${err.message}`);
+  }
+  showApp();
   render();
+}
+
+async function init() {
+  if (!timer) startTimer(); // ao abrir o site, já começa a contar
   setInterval(() => {
     renderTimer();
     document.title = timer?.runningSince ? `${clock(elapsed())} · English Tracker` : "English Tracker";
   }, 250);
+  if (cloudEnabled() && !isLoggedIn()) return showLogin();
+  await start();
 }
 
 init();
