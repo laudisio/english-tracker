@@ -9,6 +9,13 @@ Site estático para acompanhar o tempo de estudo de inglês.
 - **Dashboard**: tempo estudado hoje, na semana (seg–dom), no mês, no ano e total, gráfico dos últimos 14 dias e ranking por atividade.
 - **Histórico**: lista de sessões agrupadas por dia, com exclusão e exportação/importação em JSON (backup).
 
+## Instalar no iPhone (PWA)
+
+1. Abra o site no **Safari**.
+2. Toque em **Compartilhar** (o quadrado com a seta) e depois em **Adicionar à Tela de Início**.
+3. O app aparece com ícone próprio e abre em tela cheia. Se o iPhone suspender o app em segundo plano, o tempo continua
+   certo: ao voltar, o cronômetro recalcula a partir da hora de início.
+
 ## Onde ficam os dados
 
 - **Sem AWS** (`js/config.js` vazio): tudo fica no `localStorage` do navegador.

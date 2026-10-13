@@ -404,4 +404,13 @@ async function init() {
   await start();
 }
 
+// Ao voltar para o app (ex.: depois de ver a Tela de Início no iPhone), atualiza o tempo na hora.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") renderTimer();
+});
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
 init();

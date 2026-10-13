@@ -19,6 +19,9 @@ body {
 .topbar {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
   gap: 12px; padding: 16px 24px; border-bottom: 1px solid var(--border);
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
 }
 .topbar h1 { margin: 0; font-size: 1.3rem; }
 .tabs { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -28,7 +31,7 @@ body {
 }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--text); background: var(--card); border-color: var(--border); }
-main { max-width: 960px; margin: 0 auto; padding: 24px; }
+main { max-width: 960px; margin: 0 auto; padding: 24px; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
 .view { display: none; }
 .view.active { display: block; }
 .card {
