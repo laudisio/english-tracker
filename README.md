@@ -4,7 +4,7 @@ Site estático para acompanhar o tempo de estudo de inglês.
 
 ## Funcionalidades
 
-- **Cronômetro**: começa a contar assim que o site é aberto. Dá para pausar/retomar, e ao clicar em *Parar e salvar* você informa o nome da atividade. Se fechar a aba, o cronômetro continua de onde parou ao reabrir.
+- **Cronômetro**: começa parado e conta a partir do clique em *Iniciar*. Dá para pausar/retomar, e ao clicar em *Parar e salvar* você informa o nome da atividade. Se fechar a aba, o cronômetro continua de onde parou ao reabrir.
 - **Lançar período**: registra atividades passadas informando nome, data, horário (opcional) e duração.
 - **Dashboard**: tempo estudado hoje, na semana (seg–dom), no mês, no ano e total, gráfico dos últimos 14 dias e ranking por atividade.
 - **Histórico**: lista de sessões agrupadas por dia, com exclusão e exportação/importação em JSON (backup).

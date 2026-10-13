@@ -396,7 +396,6 @@ async function start() {
 }
 
 async function init() {
-  if (!timer) startTimer(); // ao abrir o site, já começa a contar
   setInterval(() => {
     renderTimer();
     document.title = timer?.runningSince ? `${clock(elapsed())} · English Tracker` : "English Tracker";
