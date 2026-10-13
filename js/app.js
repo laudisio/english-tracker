@@ -231,7 +231,7 @@ function renderDashboard() {
   $("#chart-days").innerHTML = days
     .map(({ d, ms }, i) => `<div class="bar-col ${i === 13 ? "today" : ""}" title="${fmtDate(d)}: ${human(ms)}">
       <div class="bar-track"><div class="bar" style="height:${(ms / max) * 100}%"></div></div>
-      <span>${pad(d.getDate())}/${pad(d.getMonth() + 1)}</span></div>`)
+      <span>${pad(d.getDate())}</span></div>`)
     .join("");
 
   const byName = {};
