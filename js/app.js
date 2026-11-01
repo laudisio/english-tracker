@@ -194,18 +194,33 @@ async function deleteSession(id) {
   render();
 }
 
+async function renameSession(id, name) {
+  const old = sessions.find((s) => s.id === id);
+  if (!old || !name || name === old.name) return true;
+  const updated = { ...old, name };
+  try {
+    await storage.updateSession(updated);
+  } catch (e) {
+    alert(`Não foi possível renomear: ${e.message}`);
+    return false;
+  }
+  sessions = sessions.map((s) => (s.id === id ? updated : s));
+  return true;
+}
+
 function sumSince(from) {
   return sessions.filter((s) => new Date(s.start) >= from).reduce((a, s) => a + s.durationMs, 0);
 }
 
-function sessionItem(s, withDelete) {
+function sessionItem(s, editable) {
   const end = new Date(new Date(s.start).getTime() + s.durationMs);
   const badge = s.source === "manual" ? '<span class="badge">manual</span>' : "";
   return `<li>
     <div><div class="name">${escapeHtml(s.name)}${badge}</div>
     <div class="meta">${fmtTime(s.start)} – ${fmtTime(end)}</div></div>
     <div class="row"><span class="dur">${human(s.durationMs)}</span>
-    ${withDelete ? `<button class="btn danger" data-del="${s.id}" title="Excluir">✕</button>` : ""}</div>
+    ${editable ? `<button class="btn icon" data-edit="${s.id}" title="Editar nome">✎</button>
+    <button class="btn danger" data-del="${s.id}" title="Excluir">✕</button>` : ""}</div>
   </li>`;
 }
 
@@ -283,9 +298,36 @@ function renderHistory() {
 }
 
 $("#history-list").addEventListener("click", (e) => {
-  const id = e.target.closest("[data-del]")?.dataset.del;
-  if (id) deleteSession(id);
+  const del = e.target.closest("[data-del]")?.dataset.del;
+  if (del) return deleteSession(del);
+  const edit = e.target.closest("[data-edit]")?.dataset.edit;
+  if (edit) startRename(e.target.closest("li"), edit);
 });
+
+function startRename(li, id) {
+  const s = sessions.find((x) => x.id === id);
+  if (!s || li.querySelector(".rename-form")) return;
+  const nameEl = li.querySelector(".name");
+  nameEl.innerHTML = `<form class="rename-form">
+    <input class="rename-input" list="activity-names" maxlength="80" required value="${escapeHtml(s.name)}" />
+    <button class="btn primary" type="submit">Salvar</button>
+    <button class="btn ghost" type="button" data-cancel>Cancelar</button>
+  </form>`;
+  const form = nameEl.querySelector("form");
+  const input = form.querySelector("input");
+  input.focus();
+  input.select();
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") render();
+  });
+  form.querySelector("[data-cancel]").addEventListener("click", () => render());
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    form.querySelectorAll("button, input").forEach((el) => (el.disabled = true));
+    await renameSession(id, input.value.trim());
+    render();
+  });
+}
 
 function renderNames() {
   const names = [...new Set(sessions.map((s) => s.name.trim()))].sort();

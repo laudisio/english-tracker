@@ -25,6 +25,9 @@ export const localAdapter = {
   async addSession(session) {
     write(SESSIONS_KEY, [...read(SESSIONS_KEY, []), session]);
   },
+  async updateSession(session) {
+    write(SESSIONS_KEY, read(SESSIONS_KEY, []).map((s) => (s.id === session.id ? session : s)));
+  },
   async deleteSession(id) {
     write(SESSIONS_KEY, read(SESSIONS_KEY, []).filter((s) => s.id !== id));
   },
@@ -54,6 +57,8 @@ async function api(method, path, body) {
 export const cloudAdapter = {
   listSessions: () => api("GET", "/sessions"),
   addSession: (session) => api("POST", "/sessions", session),
+  // POST com o mesmo id sobrescreve o registro existente.
+  updateSession: (session) => api("POST", "/sessions", session),
   deleteSession: (id) => api("DELETE", `/sessions/${encodeURIComponent(id)}`),
   async importSessions(list) {
     for (let i = 0; i < list.length; i += 200) await api("POST", "/sessions", list.slice(i, i + 200));

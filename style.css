@@ -62,6 +62,8 @@ input:focus { outline: 2px solid var(--primary); border-color: transparent; }
 .btn.primary { background: var(--primary); }
 .btn.primary:hover { background: var(--primary-hover); filter: none; }
 .btn.ghost { background: transparent; border: 1px solid var(--border); }
+.btn.icon { background: transparent; color: var(--muted); padding: 4px 8px; }
+.btn.icon:hover { color: var(--text); }
 .btn.danger { background: transparent; color: var(--danger); padding: 4px 8px; }
 .file-btn { flex-direction: row; color: var(--text); font-size: .95rem; }
 .timer-card { text-align: center; }
@@ -111,3 +113,7 @@ input:focus { outline: 2px solid var(--primary); border-color: transparent; }
 .topbar h1 .badge { vertical-align: middle; }
 .btn:disabled { opacity: .5; cursor: not-allowed; }
 .badge:empty { display: none; }
+
+.rename-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.rename-form .rename-input { flex: 1; min-width: 160px; }
+.session-list li > div:first-child { flex: 1; min-width: 0; }

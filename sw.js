@@ -1,6 +1,6 @@
 // Service worker: guarda os arquivos do site para abrir rápido e offline.
 // Estratégia "rede primeiro": sempre tenta a versão mais nova e usa o cache se estiver sem internet.
-const CACHE = "english-tracker-v2";
+const CACHE = "english-tracker-v3";
 const ASSETS = [
   "./",
   "index.html",
