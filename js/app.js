@@ -167,6 +167,8 @@ $("#manual-form").addEventListener("submit", async (e) => {
   if (!(await saveSession({ name, start: start.toISOString(), durationMs, source: "manual" }))) return;
   $("#manual-msg").textContent = `Adicionado: ${name} — ${human(durationMs)} em ${fmtDate(start)}.`;
   $("#manual-name").value = "";
+  $("#manual-hours").value = "";
+  $("#manual-minutes").value = "";
   render();
 });
 
